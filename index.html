@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PC Builder – Live-Preise</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --bg4: #22222f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --text: #f0f0f8;
+    --text2: #9090b0;
+    --text3: #5a5a78;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.6; }
+
+  header { border-bottom: 1px solid var(--border); padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(10,10,15,0.92); backdrop-filter: blur(12px); z-index: 100; }
+  .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .header-price { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500; color: var(--accent2); }
+  .header-price-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .app { display: grid; grid-template-columns: 1fr 340px; min-height: calc(100vh - 65px); }
+  .main { padding: 28px 32px; overflow-y: auto; }
+  .sidebar { border-left: 1px solid var(--border); padding: 28px 24px; position: sticky; top: 65px; height: calc(100vh - 65px); overflow-y: auto; background: var(--bg2); }
+
+  .section { margin-bottom: 32px; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+
+  .comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .comp-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; overflow: hidden; }
+  .comp-card:hover { border-color: var(--border2); background: var(--bg4); }
+  .comp-card.selected { border-color: var(--accent); background: var(--bg4); }
+  .comp-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .comp-spec { font-size: 11px; color: var(--text3); margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Preis-Bereich: zeigt statischen Preis ODER Live-Preis */
+  .comp-price-wrap { display: flex; align-items: center; gap: 8px; }
+  .comp-price { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: var(--accent2); }
+  .comp-price.live { color: var(--green); }
+  .price-loading { width: 60px; height: 16px; background: var(--border2); border-radius: 4px; animation: shimmer 1.2s infinite; }
+  @keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .live-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 2px 5px; border-radius: 4px; background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .static-badge { font-size: 9px; color: var(--text3); }
+
+  .comp-tier { display: flex; gap: 4px; margin-bottom: 8px; }
+  .tier-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); }
+  .tier-dot.fill { background: var(--accent); }
+  .comp-badge { position: absolute; top: 10px; right: 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; background: rgba(108,99,255,0.2); color: var(--accent2); border: 1px solid rgba(108,99,255,0.3); }
+
+  .select-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .select-group { display: flex; flex-direction: column; gap: 6px; }
+  .select-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); }
+  select { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 9px 32px 9px 12px; font-size: 13px; font-family: 'Space Grotesk', sans-serif; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a5a78' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; transition: border-color 0.15s; }
+  select:hover { border-color: var(--border2); }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  /* Sidebar */
+  .sidebar-title { font-size: 13px; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .sidebar-divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .sidebar-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 10px; }
+
+  .price-item { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid var(--border); font-size: 12px; }
+  .price-item:last-child { border-bottom: none; }
+  .price-item-name { color: var(--text3); }
+  .price-item-val { font-family: 'JetBrains Mono', monospace; color: var(--text2); font-size: 12px; }
+  .price-item-val.live { color: var(--green); }
+  .price-total-row { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px solid var(--border2); margin-top: 4px; }
+  .price-total-label { font-size: 12px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+  .price-total-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: var(--accent2); }
+
+  .compat-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .compat-item:last-child { border-bottom: none; }
+  .compat-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .compat-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .compat-dot.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .compat-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .compat-text { font-size: 12px; }
+  .compat-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+  .compat-text span { color: var(--text3); }
+
+  .fps-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .fps-tab { padding: 5px 14px; border-radius: 100px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text3); font-family: 'Space Grotesk', sans-serif; transition: all 0.15s; }
+  .fps-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .fps-game { margin-bottom: 14px; }
+  .fps-game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 12px; }
+  .fps-game-name { color: var(--text2); }
+  .fps-val { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 13px; }
+  .fps-val.great { color: var(--green); }
+  .fps-val.good  { color: var(--blue); }
+  .fps-val.low   { color: var(--amber); }
+  .fps-val.poor  { color: var(--red); }
+  .fps-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .fps-fill { height: 100%; border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+
+  /* Live-Status Banner */
+  .status-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    background: var(--bg3); border: 0.5px solid var(--border);
+    font-size: 12px; color: var(--text3);
+    margin-bottom: 16px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.err { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .score-label { font-size: 12px; color: var(--text3); width: 80px; flex-shrink: 0; }
+  .score-track { flex: 1; height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.5s; }
+  .score-num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text2); width: 28px; text-align: right; }
+
+  .watt-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); margin-bottom: 5px; font-family: 'JetBrains Mono', monospace; }
+  .watt-track { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .watt-fill { height: 100%; border-radius: 3px; transition: width 0.4s, background 0.4s; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    PC Builder
+  </div>
+  <div>
+    <div class="header-price-label">Gesamtpreis</div>
+    <div class="header-price" id="hdr-price">wird berechnet…</div>
+  </div>
+</header>
+
+<div class="app">
+  <div class="main">
+
+    <!-- Status Banner -->
+    <div class="status-banner" id="status-banner">
+      <div class="status-dot loading" id="status-dot"></div>
+      <span id="status-text">Live-Preise werden abgerufen…</span>
+    </div>
+
+    <!-- CPU -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Prozessor (CPU)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="comp-grid" id="cpu-grid"></div>
+    </div>
+
+    <!-- GPU -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Grafikkarte (GPU)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="comp-grid" id="gpu-grid"></div>
+    </div>
+
+    <!-- Weitere -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Weitere Komponenten</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="select-row">
+        <div class="select-group">
+          <span class="select-label">Mainboard</span>
+          <select id="mb-sel" onchange="update()">
+            <option value="z890_rog">ASUS ROG Strix Z890-F – 449 €</option>
+            <option value="b860_mag">MSI MAG B860 Tomahawk – 219 €</option>
+            <option value="x870e_aorus">Gigabyte X870E Aorus Elite – 389 €</option>
+          </select>
+        </div>
+        <div class="select-group">
+          <span class="select-label">RAM</span>
+          <select id="ram-sel" onchange="update()">
+            <option value="ddr5_32">32 GB DDR5-6000 – 89 €</option>
+            <option value="ddr5_64">64 GB DDR5-6000 – 159 €</option>
+            <option value="ddr4_32">32 GB DDR4-3600 – 59 €</option>
+          </select>
+        </div>
+        <div class="select-group">
+          <span class="select-label">SSD</span>
+          <select id="ssd-sel" onchange="update()">
+            <option value="ssd1">Samsung 990 Pro 2TB – 149 €</option>
+            <option value="ssd2">WD Black SN850X 1TB – 99 €</option>
+            <option value="ssd3">Kingston Fury Renegade 2TB – 139 €</option>
+          </select>
+        </div>
+        <div class="select-group">
+          <span class="select-label">Netzteil</span>
+          <select id="psu-sel" onchange="update()">
+            <option value="750g">750W Gold – 89 €</option>
+            <option value="850g">850W Gold – 109 €</option>
+            <option value="1000p">1000W Platinum – 169 €</option>
+          </select>
+        </div>
+        <div class="select-group">
+          <span class="select-label">Gehäuse</span>
+          <select id="case-sel" onchange="update()">
+            <option value="fractal">Fractal Define 7 – 159 €</option>
+            <option value="nzxt">NZXT H9 Elite – 229 €</option>
+            <option value="be">be quiet! 802 – 179 €</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- FPS -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Gaming-Performance (FPS-Schätzung)</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="fps-tabs">
+        <button class="fps-tab active" onclick="setRes('1080p',this)">Full HD</button>
+        <button class="fps-tab" onclick="setRes('1440p',this)">WQHD</button>
+        <button class="fps-tab" onclick="setRes('4k',this)">4K</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+        <div id="fps-col1"></div>
+        <div id="fps-col2"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Zusammenfassung</div>
+
+    <div class="sidebar-section-label">Performance-Score</div>
+    <div id="score-bars" style="margin-bottom:20px"></div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section-label">Stromverbrauch</div>
+    <div style="margin-bottom:20px">
+      <div class="watt-info">
+        <span id="watt-used">– W System</span>
+        <span id="watt-psu">– W PSU</span>
+      </div>
+      <div class="watt-track">
+        <div class="watt-fill" id="watt-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section-label">Kompatibilität</div>
+    <div id="compat-list" style="margin-bottom:20px"></div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section-label">Preisübersicht</div>
+    <div id="price-list"></div>
+    <div class="price-total-row">
+      <span class="price-total-label">Gesamt</span>
+      <span class="price-total-val" id="total-price">–</span>
+    </div>
+  </aside>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// DATENBANK
+// ════════════════════════════════════════════════
+
+// Geizhals-IDs: Die Zahl in der URL, z.B. geizhals.de/?cat=WL-XXXXX
+// So findest du die ID: Suche das Produkt auf geizhals.de,
+// kopiere die Zahl aus der URL nach "WL-"
+const CPUS = [
+  { id:'r9_9950x',  name:'Ryzen 9 9950X',  spec:'16C · AM5 · 170W', staticPrice:529, ghId:'3416245', socket:'AM5', tdp:170, tier:5, brand:'AMD', score:{gaming:92,multi:98,eff:70} },
+  { id:'r7_9700x',  name:'Ryzen 7 9700X',  spec:'8C · AM5 · 65W',   staticPrice:299, ghId:'3416242', socket:'AM5', tdp:65,  tier:3, brand:'AMD', score:{gaming:88,multi:80,eff:96} },
+  { id:'r5_9600x',  name:'Ryzen 5 9600X',  spec:'6C · AM5 · 65W',   staticPrice:219, ghId:'3416240', socket:'AM5', tdp:65,  tier:2, brand:'AMD', score:{gaming:82,multi:68,eff:95} },
+  { id:'i9_14900k', name:'Core i9-14900K', spec:'24C · LGA1851 · 125W', staticPrice:389, ghId:'3148467', socket:'LGA1851', tdp:125, tier:5, brand:'Intel', score:{gaming:91,multi:95,eff:68} },
+  { id:'i7_14700k', name:'Core i7-14700K', spec:'20C · LGA1851 · 125W', staticPrice:349, ghId:'3148465', socket:'LGA1851', tdp:125, tier:3, brand:'Intel', score:{gaming:88,multi:88,eff:72} },
+  { id:'i5_14600k', name:'Core i5-14600K', spec:'14C · LGA1851 · 125W', staticPrice:229, ghId:'3148463', socket:'LGA1851', tdp:125, tier:2, brand:'Intel', score:{gaming:85,multi:78,eff:75} },
+];
+
+const GPUS = [
+  { id:'rtx5090',   name:'RTX 5090',    spec:'32 GB · 575W', staticPrice:2199, ghId:'3671300', power:575, tier:5, score:{gaming:100,ray:100} },
+  { id:'rtx5080',   name:'RTX 5080',    spec:'16 GB · 360W', staticPrice:1299, ghId:'3671298', power:360, tier:4, score:{gaming:88,ray:88}  },
+  { id:'rtx5070ti', name:'RTX 5070 Ti', spec:'16 GB · 300W', staticPrice:849,  ghId:'3671296', power:300, tier:3, score:{gaming:78,ray:76}  },
+  { id:'rx9070xt',  name:'RX 9070 XT',  spec:'16 GB · 304W', staticPrice:699,  ghId:'3698100', power:304, tier:3, score:{gaming:75,ray:60}  },
+  { id:'rtx5070',   name:'RTX 5070',    spec:'12 GB · 250W', staticPrice:649,  ghId:'3671294', power:250, tier:3, score:{gaming:72,ray:70}  },
+];
+
+const MB_DATA = {
+  z890_rog:   { socket:'LGA1851', ram:'DDR5', price:449, name:'ASUS ROG Z890-F' },
+  b860_mag:   { socket:'LGA1851', ram:'DDR5', price:219, name:'MSI MAG B860' },
+  x870e_aorus:{ socket:'AM5',     ram:'DDR5', price:389, name:'Gigabyte X870E' },
+};
+const RAM_DATA  = { ddr5_32:{type:'DDR5',price:89,name:'32 GB DDR5'}, ddr5_64:{type:'DDR5',price:159,name:'64 GB DDR5'}, ddr4_32:{type:'DDR4',price:59,name:'32 GB DDR4'} };
+const SSD_DATA  = { ssd1:{price:149,name:'Samsung 990 Pro 2TB'}, ssd2:{price:99,name:'WD SN850X 1TB'}, ssd3:{price:139,name:'Kingston Fury 2TB'} };
+const PSU_DATA  = { '750g':{watts:750,price:89,name:'750W Gold'}, '850g':{watts:850,price:109,name:'850W Gold'}, '1000p':{watts:1000,price:169,name:'1000W Platinum'} };
+const CASE_DATA = { fractal:{price:159,name:'Fractal Define 7'}, nzxt:{price:229,name:'NZXT H9 Elite'}, be:{price:179,name:'be quiet! 802'} };
+
+const FPS = {
+  rtx5090:   { '1080p':[220,190,480,170,260,310,440,155], '1440p':[165,145,370,130,195,240,340,115], '4k':[105,92,230,82,120,150,210,70]  },
+  rtx5080:   { '1080p':[190,165,420,148,225,270,390,138], '1440p':[138,120,315,108,165,200,290,100], '4k':[82,74,195,66,98,118,175,60]   },
+  rtx5070ti: { '1080p':[158,140,385,128,192,240,345,120], '1440p':[112,100,275,92,140,175,250,86],  '4k':[62,58,165,52,78,98,152,48]    },
+  rx9070xt:  { '1080p':[148,132,368,120,180,225,330,112], '1440p':[105,94,258,86,132,165,235,80],   '4k':[55,52,155,48,72,90,140,44]    },
+  rtx5070:   { '1080p':[142,125,355,115,172,215,315,108], '1440p':[98,88,248,80,124,158,222,75],    '4k':[50,46,145,44,65,82,128,40]    },
+};
+const GAMES = ['Cyberpunk 2077','AC Shadows','Call of Duty','Elden Ring','Forza Horizon 5','Microsoft Flight Sim','Counter-Strike 2','Red Dead Redemption 2'];
+
+// ════════════════════════════════════════════════
+// STATE & LIVE-PREISE
+// ════════════════════════════════════════════════
+let selCpu = CPUS[1], selGpu = GPUS[2], curRes = '1080p';
+
+// Cache: { ghId: { price, shop, isLive } }
+const priceCache = {};
+
+// Alle Preise als live-Preise laden
+async function fetchLivePrice(component) {
+  if (!component.ghId) return;
+  if (priceCache[component.ghId]) return; // schon gecacht
+
+  try {
+    // Ruft unsere eigene Vercel API Route auf
+    const res = await fetch(`/api/prices?id=${component.ghId}`);
+    const data = await res.json();
+
+    if (data.price && !isNaN(data.price)) {
+      priceCache[component.ghId] = { price: data.price, shop: data.shop, isLive: true };
+    } else {
+      priceCache[component.ghId] = { price: component.staticPrice, shop: null, isLive: false };
+    }
+  } catch {
+    priceCache[component.ghId] = { price: component.staticPrice, shop: null, isLive: false };
+  }
+
+  // Nach Preisabruf neu rendern
+  update();
+}
+
+function getPrice(component) {
+  const cached = priceCache[component.ghId];
+  if (cached) return cached;
+  return { price: component.staticPrice, shop: null, isLive: false };
+}
+
+async function loadAllPrices() {
+  setStatus('loading', 'Live-Preise werden abgerufen…');
+
+  const all = [...CPUS, ...GPUS];
+  // Parallel laden (aber nicht alle gleichzeitig – max. 3 auf einmal)
+  for (let i = 0; i < all.length; i += 3) {
+    await Promise.all(all.slice(i, i+3).map(c => fetchLivePrice(c)));
+  }
+
+  const liveCount = Object.values(priceCache).filter(p => p.isLive).length;
+  if (liveCount > 0) {
+    setStatus('ok', `${liveCount} Live-Preise geladen · ${new Date().toLocaleTimeString('de-DE')}`);
+  } else {
+    setStatus('err', 'Live-Preise nicht verfügbar – statische Preise werden angezeigt');
+  }
+}
+
+function setStatus(type, text) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot ' + type;
+  txt.textContent = text;
+}
+
+// ════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════
+function tierDots(n) {
+  return Array.from({length:5},(_,i)=>`<div class="tier-dot${i<n?' fill':''}"></div>`).join('');
+}
+
+function renderCards(arr, containerId, selId, onClickFn) {
+  document.getElementById(containerId).innerHTML = arr.map(c => {
+    const pd = getPrice(c);
+    const priceHtml = pd.isLive
+      ? `<span class="comp-price live">${pd.price.toLocaleString('de-DE', {minimumFractionDigits:2})} €</span><span class="live-badge">LIVE</span>`
+      : priceCache[c.ghId] === undefined
+        ? `<span class="price-loading"></span>` // noch lädt
+        : `<span class="comp-price">${pd.price} €</span><span class="static-badge">ca.</span>`;
+
+    return `<div class="comp-card${c.id===selId?' selected':''}" onclick="pick_${onClickFn}(${JSON.stringify(c).replace(/"/g,'&quot;')})">
+      ${c.brand ? `<span class="comp-badge">${c.brand}</span>` : ''}
+      <div class="comp-tier">${tierDots(c.tier)}</div>
+      <div class="comp-name">${c.name}</div>
+      <div class="comp-spec">${c.spec}</div>
+      <div class="comp-price-wrap">${priceHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function fpsClass(v) { return v>=144?'great':v>=80?'good':v>=50?'low':'poor'; }
+function fpsColor(v) { return v>=144?'#10b981':v>=80?'#3b82f6':v>=50?'#f59e0b':'#ef4444'; }
+
+function renderFps() {
+  const data = FPS[selGpu.id]?.[curRes] || [];
+  const html = GAMES.map((g,i) => {
+    const fps = data[i]||0;
+    return `<div class="fps-game">
+      <div class="fps-game-header"><span class="fps-game-name">${g}</span><span class="fps-val ${fpsClass(fps)}">${fps}</span></div>
+      <div class="fps-track"><div class="fps-fill" style="width:${Math.round(fps/500*100)}%;background:${fpsColor(fps)}"></div></div>
+    </div>`;
+  });
+  document.getElementById('fps-col1').innerHTML = html.slice(0,4).join('');
+  document.getElementById('fps-col2').innerHTML = html.slice(4).join('');
+}
+
+function update() {
+  renderCards(CPUS, 'cpu-grid', selCpu.id, 'cpu');
+  renderCards(GPUS, 'gpu-grid', selGpu.id, 'gpu');
+
+  const mb  = document.getElementById('mb-sel').value;
+  const ram = document.getElementById('ram-sel').value;
+  const ssd = document.getElementById('ssd-sel').value;
+  const psu = document.getElementById('psu-sel').value;
+  const cas = document.getElementById('case-sel').value;
+
+  const mbD   = MB_DATA[mb]   || {};
+  const ramD  = RAM_DATA[ram] || {};
+  const ssdD  = SSD_DATA[ssd] || {};
+  const psuD  = PSU_DATA[psu] || {};
+  const caseD = CASE_DATA[cas]|| {};
+
+  // Preise (live wenn verfügbar)
+  const cpuPd  = getPrice(selCpu);
+  const gpuPd  = getPrice(selGpu);
+  const cpuP   = cpuPd.price;
+  const gpuP   = gpuPd.price;
+  const total  = cpuP + gpuP + (ramD.price||0) + (mbD.price||0) + (ssdD.price||0) + (psuD.price||0) + (caseD.price||0);
+
+  // Wattage
+  const sysW = selCpu.tdp + selGpu.power + 60;
+  const psuW = psuD.watts||850;
+  const wPct = Math.min(Math.round(sysW/psuW*100),100);
+  const wCol = wPct>90?'#ef4444':wPct>75?'#f59e0b':'#10b981';
+  document.getElementById('watt-used').textContent = sysW + ' W System';
+  document.getElementById('watt-psu').textContent  = psuW + ' W PSU';
+  document.getElementById('watt-fill').style.width      = wPct + '%';
+  document.getElementById('watt-fill').style.background = wCol;
+
+  // Kompatibilität
+  const socketOk = mbD.socket === selCpu.socket;
+  const ramOk    = ramD.type === mbD.ram;
+  const psuOk    = psuW >= sysW;
+  const checks = [
+    { label:'CPU ↔ Sockel', ok:socketOk, warn:false, msg: socketOk?`${selCpu.socket} ✓`:`${selCpu.socket} ≠ ${mbD.socket||'?'}` },
+    { label:'RAM ↔ Mainboard', ok:ramOk, warn:false, msg: ramOk?`${ramD.type} ✓`:`${ramD.type} ≠ ${mbD.ram||'?'}` },
+    { label:'Netzteil', ok:psuOk, warn:psuOk&&psuW<sysW*1.2, msg: psuOk?(psuW<sysW*1.2?'Knapp bemessen':'Ausreichend'):`Zu schwach (${sysW}W)` },
+  ];
+  document.getElementById('compat-list').innerHTML = checks.map(c => {
+    const cls = !c.ok?'err':c.warn?'warn':'ok';
+    return `<div class="compat-item"><div class="compat-dot ${cls}"></div><div class="compat-text"><strong>${c.label}</strong><span>${c.msg}</span></div></div>`;
+  }).join('');
+
+  // Preisliste
+  const parts = [
+    { name:selCpu.name, price:cpuP, live:cpuPd.isLive },
+    { name:selGpu.name, price:gpuP, live:gpuPd.isLive },
+    { name:mbD.name||'Mainboard', price:mbD.price||0, live:false },
+    { name:ramD.name||'RAM', price:ramD.price||0, live:false },
+    { name:ssdD.name||'SSD', price:ssdD.price||0, live:false },
+    { name:psuD.name||'Netzteil', price:psuD.price||0, live:false },
+    { name:caseD.name||'Gehäuse', price:caseD.price||0, live:false },
+  ];
+  document.getElementById('price-list').innerHTML = parts.map(p =>
+    `<div class="price-item"><span class="price-item-name">${p.name}</span><span class="price-item-val${p.live?' live':''}">${p.price} €${p.live?' ↗':''}</span></div>`
+  ).join('');
+  document.getElementById('total-price').textContent = total.toLocaleString('de-DE') + ' €';
+  document.getElementById('hdr-price').textContent   = total.toLocaleString('de-DE') + ' €';
+
+  // Score
+  const gaming = Math.round(selCpu.score.gaming*0.3 + selGpu.score.gaming*0.7);
+  const scores = [{label:'Gaming',val:gaming},{label:'Multitask',val:selCpu.score.multi},{label:'Effizienz',val:selCpu.score.eff},{label:'Raytracing',val:selGpu.score.ray}];
+  document.getElementById('score-bars').innerHTML = scores.map(s =>
+    `<div class="score-row"><span class="score-label">${s.label}</span><div class="score-track"><div class="score-fill" style="width:${s.val}%"></div></div><span class="score-num">${s.val}</span></div>`
+  ).join('');
+
+  renderFps();
+}
+
+// ════════════════════════════════════════════════
+// PICKER (global wegen onclick im HTML)
+// ════════════════════════════════════════════════
+function pick_cpu(c) { selCpu = c; update(); }
+function pick_gpu(g) { selGpu = g; update(); }
+function setRes(r, btn) {
+  curRes = r;
+  document.querySelectorAll('.fps-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderFps();
+}
+
+// ════════════════════════════════════════════════
+// START
+// ════════════════════════════════════════════════
+update();
+loadAllPrices();
+</script>
+</body>
+</html>
