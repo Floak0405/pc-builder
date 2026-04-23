@@ -1,4 +1,11 @@
 {
   "version": 2,
-  "outputDirectory": "public"
+  "builds": [
+    { "src": "public/index.html", "use": "@vercel/static" },
+    { "src": "api/prices.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/prices", "dest": "/api/prices.js" },
+    { "src": "/(.*)", "dest": "/public/index.html" }
+  ]
 }
